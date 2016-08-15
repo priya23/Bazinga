@@ -1,0 +1,147 @@
+import boto3
+import logging
+import datetime
+import json
+import urllib2
+
+#setup simple logging for INFO
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+#define the connection
+ec2 = boto3.resource('ec2')
+client = boto3.client('cloudwatch')
+response = urllib2.urlopen('https://s3.amazonaws.com/forassets/pricing-on-demand-instances.json')
+pricejson = response.read()
+pricing = json.loads(pricejson)
+
+#define variables
+cpu_list =[]
+
+cpu_threshold = 5.0
+disk_threshold = 500
+price_array = {}
+
+
+#collect pricing details
+for val in (pricing['config']['regions'][0]['instanceTypes']):
+    for v in val['sizes']:
+        for tt in v['valueColumns']:
+            price_array[v['size']] = tt['prices']['USD']
+            
+#for retreiving metrics
+def callcloudy(id, metric):
+    result = client.get_metric_statistics(
+                    Namespace='AWS/EC2',
+                    MetricName=metric,
+                    Dimensions=[{'Name': 'InstanceId', 'Value': id }],
+                    StartTime=datetime.datetime.utcnow() - datetime.timedelta(seconds=10800),
+                    EndTime=datetime.datetime.utcnow(),
+                    Period=60,
+                    Statistics=['Maximum'])
+    return result
+
+#for cpu rule
+def cpu_rule(id):
+    cpu = []
+    count = 0
+    cpuvalue = callcloudy(id,"CPUUtilization")
+    if (len(cpuvalue['Datapoints']) < 30):
+        return False
+    for i in cpuvalue['Datapoints']:
+        cpu.append(i['Maximum'])
+    for i in cpu:
+        if i < cpu_threshold:
+           count += 1 
+        else:
+            count = 0
+    if count > 25:
+        return True
+    else:
+        return False
+        
+
+#def disk rule
+def disk_write_rule(id):
+    disk = []
+    count = 0
+    diskval = callcloudy(id,"DiskWriteOps")
+    if (len(diskval['Datapoints']) < 30):
+        return False
+    for i in diskval['Datapoints']:
+        disk.append(i['Maximum'])
+    for i in disk:
+        if i < disk_threshold:
+            count +=1
+        else:
+            count = 0
+    if count > 25:
+        return True
+    else:
+        return False
+
+def disk_read_rule(id):
+    disk = []
+    count = 0
+    diskval = callcloudy(id,"DiskReadOps")
+    if(len(diskval['Datapoints']) < 30):
+        return False
+    for i in diskval['Datapoints']:
+        disk.append(i['Maximum'])
+    for i in disk:
+        if i < disk_threshold:
+            count +=1
+        else:
+            count = 0
+    if count > 25:
+        return True
+    else:
+        return False
+        
+    
+    
+
+def lambda_handler(event, context):
+    # Use the filter() method of the instances collection to retrieve
+    # all running EC2 instances.
+    filters = [
+        {
+            'Name': 'instance-state-name', 
+            'Values': ['running']
+        }
+    ]
+    print("before the call")
+    
+    #filter the instances
+    instances = ec2.instances.filter(Filters=filters)
+    total_cost = 0.0
+    for i in instances:
+        current_cost = 0.0
+        name = ""
+        cputest = cpu_rule(i.id)
+        diskreadtest = disk_read_rule(i.id) 
+        diskwritetest = disk_write_rule(i.id)
+        if cputest & diskreadtest & diskwritetest:
+            ss = (datetime.datetime.now(i.launch_time.tzinfo) - i.launch_time)
+            hou = ((ss.days*24) + (ss.seconds/3600))
+            current_cost = (hou*float(price_array[i.instance_type]) )
+            total_cost += current_cost
+            for tag in i.tags:
+                if tag['Key'] == 'Name':
+                    name = tag['Value']
+            cpu_list.append(name + '\t' + i.id + '\t' + str(current_cost))
+        
+    print total_cost
+    print "now list"
+    print cpu_list
+    
+    message = "less cpu utilzation for following instance: \n " + " \n".join(cpu_list)
+        
+    snsclient = boto3.client('sns')
+    response = snsclient.publish(
+        TargetArn='arn:aws:sns:us-east-1:213293927234:fortesting',
+        Message=message,
+        MessageStructure='string'
+        )
+  
+    

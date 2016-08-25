@@ -1,0 +1,28 @@
+CREATE TABLE `instances` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  PRIMARY KEY (`id`),
+  `aws_account_id` int(255),
+  `name` varchar(255),
+  `opswork_id` varchar(255),
+  `instance_id` varchar(25),
+  `instance_type` varchar(20),
+  `start_time` datetime DEFAULT NULL,
+  `stop_time`  datetime DEFAULT NULL,
+  `send_date`  datetime DEFAULT NULL,
+  `days_elapsed` int(3),
+  `acknowledgement` tinyint(2)
+) DEFAULT CHARSET=utf8;
+
+
+insert into instances(aws_account_id,name,opswork_id,instance_id,instance_type,start_time,stop_time,send_date,days_elapsed,acknowledgement) values('213293927234','stagingvpc - workers-1','69cd36b3-58dc-4210-9781-3be345d5d75f','i-8b26c312','m3.medium','2016-08-16 17:16:34','NULL','null',-1,0);
+
+ALTER IGNORE TABLE instances ADD UNIQUE (instance_id);
+insert into instances values(1,'12345','dummy','dummy','dummy','dummy','2016-08-16 17:16:34',NULL,NULL,1,0);
+
+
+insert into instances(aws_account_id,name,opswork_id,instance_id,instance_type,start_time,stop_time,send_date,days_elapsed,acknowledgement) values(account_id,name,opswork_id[ops_name],i.id,i.instance_type,(i.launch_time).strftime('%Y-%m-%d %H:%M:%S'),'null','null',-1,0)
+
+
+with conn.cursor() as cur:
+                cur.execute("insert into instances(aws_account_id,name,opswork_id,instance_id,instance_type,start_time,stop_time,send_date,days_elapsed,acknowledgement) values('213293927234','stagingvpc - workers-1','69cd36b3-58dc-4210-9781-3be345d5d75f','i-8b26c312','m3.medium','2016-08-16 17:16:34','NULL','null',-1,0)")
+                conn.commit()

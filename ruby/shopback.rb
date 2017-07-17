@@ -15,10 +15,10 @@ resp = client.describe_instances({
     	values: ["running"],
     }
  ],
- 
+
 })
 
-token = "1665203d738f870980ef737d438d1d57736b3ac6"
+token = ""
 GithubObject = Github.new do |config|
   config.oauth_token = token
   config.adapter     = :net_http

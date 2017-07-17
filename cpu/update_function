@@ -48,7 +48,7 @@ def lambda_handler(event, context):
     account_id = context.invoked_function_arn.split(':')[4]
     instances = ec2_client.instances.filter(Filters=filters)
     with conn.cursor() as cur:
-    for i in instances:
+        for i in instances:
             if i.tags is not None:
                 for t in i.tags:
                     if(t['Key'] == 'opsworks:stack'):
